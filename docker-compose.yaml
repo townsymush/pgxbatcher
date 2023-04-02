@@ -1,0 +1,30 @@
+version: "3"
+
+services:
+  db:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: myusername
+      POSTGRES_PASSWORD: mypassword
+      POSTGRES_DB: test_db
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+
+  test:
+    image: golang:1.20.2-alpine
+    environment:
+      POSTGRES_USER: myusername
+      POSTGRES_PASSWORD: mypassword
+      POSTGRES_DB: test_db
+      POSTGRES_HOST: db
+    depends_on:
+      - db
+    volumes:
+      - .:/app
+    working_dir: /app
+    command: ["go", "test", "-v", "./..."]
+
+volumes:
+  db_data:
