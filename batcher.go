@@ -6,18 +6,18 @@
 //
 //	import "github.com/townsymush/pgxbatcher"
 //
-// 2. Create a pgxpool.Pool object to connect to your PostgreSQL database:
+// 2. Create a pgx.Conn object to connect to your PostgreSQL database:
 //
 //	connString := "postgresql://username:password@localhost:5432/mydb"
-//	pool, err := pgxpool.Connect(context.Background(), connString)
+//	conn, err := pgx.Connect(context.Background(), connString)
 //	if err != nil {
 //	    // handle error
 //	}
-//	defer pool.Close()
+//	defer conn.Close()
 //
 // 3. Create a new PGXBatcher object:
 //
-//	batcher := batcher.New(pool, true)
+//	batcher := batcher.New(conn, true)
 //
 //	The second parameter to New() is a boolean flag that specifies whether to execute the batch within a transaction. If set to true, the batch will be executed within a transaction, otherwise each statement will be executed independently.
 //
@@ -39,58 +39,32 @@
 //
 //	If you don't need to use a transaction, you can create the PGXBatcher object with the transactional flag set to false and each statement in the batch will be executed independently.
 //
-//	Note that you need to import the "context" and "github.com/jackc/pgx/v4" and "github.com/jackc/pgx/v4/pgxpool" packages to use this utility.
+//	Note that you need to import the "github.com/jackc/pgx/v4" packages to use this utility.
 package batcher
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
 	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
 )
 
-type BatcherError struct {
-	sql string
-	err error
-}
-
-type BatcherErrors []BatcherError
-
-func (b BatcherErrors) Error() string {
-	errString := ""
-	if len(b) > 0 {
-		for _, v := range b {
-			errString += v.Error() + "\n"
-		}
-		return errString
-	}
-	return errString
-}
-
-func (b BatcherErrors) isErrors() bool {
-	return len(b) > 0
-}
-
-func (b BatcherError) Error() string {
-	return fmt.Sprintf("sql: %s, %s", b.sql, b.err.Error())
-}
-
 type PGXBatcher struct {
-	conn          pgxpool.Pool
+	conn          *pgx.Conn
 	queries       []string
 	batch         *pgx.Batch
 	transactional bool
+	executed      bool
 }
 
-func New(pool pgxpool.Pool, transactional bool) *PGXBatcher {
+func New(conn *pgx.Conn, transactional bool) *PGXBatcher {
 	b := pgx.Batch{}
 
 	if transactional {
 		b.Queue("BEGIN")
 	}
 	return &PGXBatcher{
-		conn:          pool,
+		conn:          conn,
 		batch:         &b,
 		transactional: true,
 	}
@@ -102,17 +76,24 @@ func (p *PGXBatcher) Queue(sql string, args []interface{}) {
 }
 
 func (p *PGXBatcher) Execute(ctx context.Context) error {
+	if len(p.queries) < 1 {
+		return errors.New("no queries to execute")
+	}
+	if p.executed {
+		return errors.New("this batch has already been executed. Create a new instance or call Reset()")
+	}
 	if p.transactional {
 		p.batch.Queue("COMMIT")
 	}
 	results := p.conn.SendBatch(ctx, p.batch)
-
-	var errs BatcherErrors
+	defer results.Close()
+	p.executed = true
+	var errs StatementErrors
 
 	for _, q := range p.queries {
 		_, err := results.Exec()
 		if err != nil {
-			errs = append(errs, BatcherError{
+			errs = append(errs, StatementError{
 				err: err,
 				sql: q,
 			})
@@ -123,4 +104,9 @@ func (p *PGXBatcher) Execute(ctx context.Context) error {
 		return errs
 	}
 	return nil
+}
+
+func (p *PGXBatcher) Reset() {
+	p.batch = &pgx.Batch{}
+	p.queries = []string{}
 }

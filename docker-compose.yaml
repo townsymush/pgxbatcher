@@ -24,7 +24,7 @@ services:
     volumes:
       - .:/app
     working_dir: /app
-    command: ["go", "test", "-v", "./..."]
+    command: ["go", "test", "-v", "./...", "-coverprofile=coverage.out"]
 
 volumes:
   db_data:
