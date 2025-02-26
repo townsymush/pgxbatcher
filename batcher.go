@@ -4,7 +4,7 @@
 //
 // 1. Import the batcher package:
 //
-//	import "github.com/townsymush/pgxbatcher"
+//	import "github.com/nar10z/pgxbatcher"
 //
 // 2. Create a pgx.Conn object to connect to your PostgreSQL database:
 //

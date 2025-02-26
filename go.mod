@@ -1,4 +1,4 @@
-module github.com/townsymush/pgxbatcher
+module github.com/nar10z/pgxbatcher
 
 go 1.22
 

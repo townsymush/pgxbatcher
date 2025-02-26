@@ -7,7 +7,7 @@ PGX Wrapper is a simple Go utility that provides a wrapper around `pgx.Batch`, a
 To install the package, run the following command:
 
 ```go
-go get https://github.com/townsymush/pgxbatcher
+go get github.com/nar10z/pgxbatcher
 ```
 
 ## Usage
@@ -22,7 +22,7 @@ import (
     "fmt"
 
     "github.com/jackc/pgx/v5/pgxpool"
-    "github.com/townsymush/pgxbatcher"
+    "github.com/nar10z/pgxbatcher"
 )
 
 func main() {
