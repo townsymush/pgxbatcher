@@ -4,7 +4,7 @@
 //
 // 1. Import the pgxbatcher package:
 //
-//	import "github.com/nar10z/pgxbatcher"
+//	import "github.com/townsymush/pgxbatcher"
 //
 // 2. Create a pgx.Conn object to connect to your PostgreSQL database:
 //
@@ -44,7 +44,6 @@ package pgxbatcher
 
 import (
 	"context"
-	"errors"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -55,62 +54,62 @@ type batcher interface {
 
 type PGXBatcher struct {
 	conn          batcher
-	queries       []string
 	batch         *pgx.Batch
 	transactional bool
 	executed      bool
 }
 
 func New(conn batcher, transactional bool) *PGXBatcher {
-	b := pgx.Batch{}
+	b := &pgx.Batch{}
 
 	if transactional {
 		b.Queue("BEGIN")
 	}
 	return &PGXBatcher{
 		conn:          conn,
-		batch:         &b,
-		transactional: true,
+		batch:         b,
+		transactional: transactional,
 	}
 }
 
 func (p *PGXBatcher) Queue(sql string, args ...any) {
 	p.batch.Queue(sql, args...)
-	p.queries = append(p.queries, sql)
 }
 
 func (p *PGXBatcher) Execute(ctx context.Context) error {
-	if len(p.queries) < 1 {
-		return errors.New("no queries to execute")
+	if p.batch.Len() < 1 {
+		return ErrEmptyBatch
 	}
+
 	if p.executed {
-		return errors.New("this batch has already been executed. Create a new instance or call Reset()")
+		return ErrExecutedBatch
 	}
+
 	if p.transactional {
 		p.batch.Queue("COMMIT")
 	}
+
 	results := p.conn.SendBatch(ctx, p.batch)
 	defer results.Close()
-	p.executed = true
-	var errs StatementErrors
 
-	for _, q := range p.queries {
+	p.executed = true
+
+	var errs = make([]error, 0, p.batch.Len())
+
+	for range p.batch.Len() {
 		_, err := results.Exec()
 		if err != nil {
-			errs = append(errs, StatementError{
-				err: err,
-				sql: q,
-			})
+			errs = append(errs, err)
 		}
 	}
 
-	if errs.isErrors() {
-		return errs
+	if len(errs) > 0 {
+		return StatementErrors(errs)
 	}
+
 	return nil
 }
 
 func (p *PGXBatcher) Reset() {
 	p.batch = &pgx.Batch{}
-	p.queries = []string{}
 }

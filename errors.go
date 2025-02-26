@@ -1,29 +1,16 @@
 package pgxbatcher
 
-import "fmt"
+import (
+	"errors"
+)
 
-type StatementError struct {
-	sql string
-	err error
-}
+var (
+	ErrEmptyBatch    = errors.New("no queries to execute")
+	ErrExecutedBatch = errors.New("this batch has already been executed. Create a new instance or call Reset()")
+)
 
-type StatementErrors []StatementError
+type StatementErrors []error
 
-func (b StatementErrors) Error() string {
-	errString := ""
-	if len(b) > 0 {
-		for _, v := range b {
-			errString += v.Error() + "\n "
-		}
-		return errString
-	}
-	return errString
-}
-
-func (b StatementErrors) isErrors() bool {
-	return len(b) > 0
-}
-
-func (b StatementError) Error() string {
-	return fmt.Sprintf("sql: %s, %s", b.sql, b.err.Error())
+func (e StatementErrors) Error() string {
+	return errors.Join(e...).Error()
 }

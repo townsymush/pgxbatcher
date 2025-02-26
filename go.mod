@@ -1,6 +1,6 @@
-module github.com/nar10z/pgxbatcher
+module github.com/townsymush/pgxbatcher
 
-go 1.22
+go 1.23
 
 require github.com/jackc/pgx/v5 v5.7.2
 
