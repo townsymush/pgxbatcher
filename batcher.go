@@ -1,8 +1,8 @@
-// Package batcher provides a utility for executing batches of SQL statements with transaction support using the pgx database driver.
+// Package pgxbatcher provides a utility for executing batches of SQL statements with transaction support using the pgx database driver.
 //
 // Usage:
 //
-// 1. Import the batcher package:
+// 1. Import the pgxbatcher package:
 //
 //	import "github.com/nar10z/pgxbatcher"
 //
@@ -17,7 +17,7 @@
 //
 // 3. Create a new PGXBatcher object:
 //
-//	batcher := batcher.New(conn, true)
+//	batcher := pgxbatcher.New(conn, true)
 //
 //	The second parameter to New() is a boolean flag that specifies whether to execute the batch within a transaction. If set to true, the batch will be executed within a transaction, otherwise each statement will be executed independently.
 //
@@ -30,7 +30,7 @@
 //
 // 5. Execute the batch:
 //
-//	err := batcher.Execute(context.Background())
+//	err := pgxbatcher.Execute(context.Background())
 //	if err != nil {
 //	    // handle error
 //	}
@@ -49,15 +49,19 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+type batcher interface {
+	SendBatch(ctx context.Context, b *pgx.Batch) pgx.BatchResults
+}
+
 type PGXBatcher struct {
-	conn          *pgx.Conn
+	conn          batcher
 	queries       []string
 	batch         *pgx.Batch
 	transactional bool
 	executed      bool
 }
 
-func New(conn *pgx.Conn, transactional bool) *PGXBatcher {
+func New(conn batcher, transactional bool) *PGXBatcher {
 	b := pgx.Batch{}
 
 	if transactional {
