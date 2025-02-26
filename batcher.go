@@ -74,7 +74,7 @@ func New(conn batcher, transactional bool) *PGXBatcher {
 	}
 }
 
-func (p *PGXBatcher) Queue(sql string, args []interface{}) {
+func (p *PGXBatcher) Queue(sql string, args ...any) {
 	p.batch.Queue(sql, args...)
 	p.queries = append(p.queries, sql)
 }
