@@ -40,7 +40,7 @@
 //	If you don't need to use a transaction, you can create the PGXBatcher object with the transactional flag set to false and each statement in the batch will be executed independently.
 //
 //	Note that you need to import the "github.com/jackc/pgx/v5" packages to use this utility.
-package batcher
+package pgxbatcher
 
 import (
 	"context"

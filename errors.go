@@ -1,4 +1,4 @@
-package batcher
+package pgxbatcher
 
 import "fmt"
 
