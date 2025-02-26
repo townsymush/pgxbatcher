@@ -38,8 +38,8 @@ func main() {
     batcher := pgxbatcher.New(pool, true)
 
     // Add SQL statements to the batch
-    batcher.Queue("INSERT INTO users (name, email) VALUES ($1, $2)", []interface{}{"Alice", "alice@example.com"})
-    batcher.Queue("INSERT INTO users (name, email) VALUES ($1, $2)", []interface{}{"Bob", "bob@example.com"})
+    batcher.Queue("INSERT INTO users (name, email) VALUES ($1, $2)", "Alice", "alice@example.com")
+    batcher.Queue("INSERT INTO users (name, email) VALUES ($1, $2)", "Bob", "bob@example.com")
 
     // Execute the batch
     err = batcher.Execute(context.Background())
