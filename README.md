@@ -7,7 +7,7 @@ PGX Wrapper is a simple Go utility that provides a wrapper around `pgx.Batch`, a
 To install the package, run the following command:
 
 ```go
-go get https://github.com/townsymush/pgxbatcher
+go get github.com/townsymush/pgxbatcher
 ```
 
 ## Usage
@@ -21,7 +21,7 @@ import (
     "context"
     "fmt"
 
-    "github.com/jackc/pgx/v4/pgxpool"
+    "github.com/jackc/pgx/v5/pgxpool"
     "github.com/townsymush/pgxbatcher"
 )
 
@@ -38,8 +38,8 @@ func main() {
     batcher := pgxbatcher.New(pool, true)
 
     // Add SQL statements to the batch
-    batcher.Queue("INSERT INTO users (name, email) VALUES ($1, $2)", []interface{}{"Alice", "alice@example.com"})
-    batcher.Queue("INSERT INTO users (name, email) VALUES ($1, $2)", []interface{}{"Bob", "bob@example.com"})
+    batcher.Queue("INSERT INTO users (name, email) VALUES ($1, $2)", "Alice", "alice@example.com")
+    batcher.Queue("INSERT INTO users (name, email) VALUES ($1, $2)", "Bob", "bob@example.com")
 
     // Execute the batch
     err = batcher.Execute(context.Background())

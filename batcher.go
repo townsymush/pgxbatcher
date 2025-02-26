@@ -1,8 +1,8 @@
-// Package batcher provides a utility for executing batches of SQL statements with transaction support using the pgx database driver.
+// Package pgxbatcher provides a utility for executing batches of SQL statements with transaction support using the pgx database driver.
 //
 // Usage:
 //
-// 1. Import the batcher package:
+// 1. Import the pgxbatcher package:
 //
 //	import "github.com/townsymush/pgxbatcher"
 //
@@ -17,7 +17,7 @@
 //
 // 3. Create a new PGXBatcher object:
 //
-//	batcher := batcher.New(conn, true)
+//	batcher := pgxbatcher.New(conn, true)
 //
 //	The second parameter to New() is a boolean flag that specifies whether to execute the batch within a transaction. If set to true, the batch will be executed within a transaction, otherwise each statement will be executed independently.
 //
@@ -30,7 +30,7 @@
 //
 // 5. Execute the batch:
 //
-//	err := batcher.Execute(context.Background())
+//	err := pgxbatcher.Execute(context.Background())
 //	if err != nil {
 //	    // handle error
 //	}
@@ -39,74 +39,77 @@
 //
 //	If you don't need to use a transaction, you can create the PGXBatcher object with the transactional flag set to false and each statement in the batch will be executed independently.
 //
-//	Note that you need to import the "github.com/jackc/pgx/v4" packages to use this utility.
-package batcher
+//	Note that you need to import the "github.com/jackc/pgx/v5" packages to use this utility.
+package pgxbatcher
 
 import (
 	"context"
-	"errors"
 
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v5"
 )
 
+type batcher interface {
+	SendBatch(ctx context.Context, b *pgx.Batch) pgx.BatchResults
+}
+
 type PGXBatcher struct {
-	conn          *pgx.Conn
-	queries       []string
+	conn          batcher
 	batch         *pgx.Batch
 	transactional bool
 	executed      bool
 }
 
-func New(conn *pgx.Conn, transactional bool) *PGXBatcher {
-	b := pgx.Batch{}
+func New(conn batcher, transactional bool) *PGXBatcher {
+	b := &pgx.Batch{}
 
 	if transactional {
 		b.Queue("BEGIN")
 	}
 	return &PGXBatcher{
 		conn:          conn,
-		batch:         &b,
-		transactional: true,
+		batch:         b,
+		transactional: transactional,
 	}
 }
 
-func (p *PGXBatcher) Queue(sql string, args []interface{}) {
+func (p *PGXBatcher) Queue(sql string, args ...any) {
 	p.batch.Queue(sql, args...)
-	p.queries = append(p.queries, sql)
 }
 
 func (p *PGXBatcher) Execute(ctx context.Context) error {
-	if len(p.queries) < 1 {
-		return errors.New("no queries to execute")
+	if p.batch.Len() < 1 {
+		return ErrEmptyBatch
 	}
+
 	if p.executed {
-		return errors.New("this batch has already been executed. Create a new instance or call Reset()")
+		return ErrExecutedBatch
 	}
+
 	if p.transactional {
 		p.batch.Queue("COMMIT")
 	}
+
 	results := p.conn.SendBatch(ctx, p.batch)
 	defer results.Close()
-	p.executed = true
-	var errs StatementErrors
 
-	for _, q := range p.queries {
+	p.executed = true
+
+	var errs = make([]error, 0, p.batch.Len())
+
+	for range p.batch.Len() {
 		_, err := results.Exec()
 		if err != nil {
-			errs = append(errs, StatementError{
-				err: err,
-				sql: q,
-			})
+			errs = append(errs, err)
 		}
 	}
 
-	if errs.isErrors() {
-		return errs
+	if len(errs) > 0 {
+		return StatementErrors(errs)
 	}
+
 	return nil
 }
 
 func (p *PGXBatcher) Reset() {
 	p.batch = &pgx.Batch{}
-	p.queries = []string{}
 }
