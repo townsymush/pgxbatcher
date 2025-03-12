@@ -6,13 +6,13 @@ PGX Wrapper is a simple Go utility that provides a wrapper around `pgx.Batch`, a
 
 To install the package, run the following command:
 
-```go
-go get https://github.com/townsymush/pgxbatcher
+```bash
+go get github.com/townsymush/pgxbatcher
 ```
 
 ## Usage
 
-Here's an example of how to use the pakage to execute a batch of SQL statements:
+Here's an example of how to use the package to execute a batch of SQL statements:
 
 ```go
 package main
@@ -44,7 +44,7 @@ func main() {
     // Execute the batch
     err = batcher.Execute(context.Background())
     if err != nil {
-        // handle errors. Note the Error type is StatementErrors []StatementError which will return all errors a string with the sql statement if required
+        // handle errors (type *pgconn.PgError)
     }
 
     fmt.Println("Batch executed successfully!")
