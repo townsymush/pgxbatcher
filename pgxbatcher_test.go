@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/jackc/pgconn"
 	"os"
 	"testing"
 
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 var conn *pgx.Conn
@@ -37,7 +37,7 @@ func TestPGXBatcher_Execute_Errors(t *testing.T) {
 
 	// add invalid SQL statement to batch
 	b.Queue("INSERT INTO users (name, email) VALUES ($1, $2)", "Alice", "alice@example.com")
-	b.Queue("INVALID SQL", []interface{}{})
+	b.Queue("INVALID SQL")
 
 	// execute batch
 	err := b.Execute(context.TODO())
@@ -49,8 +49,8 @@ func TestPGXBatcher_Execute_Errors(t *testing.T) {
 
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {
-		if err.Error() != "ERROR: syntax error at or near \"INVALID\" (SQLSTATE 42601)" {
-			t.Error("Expected error, but got none")
+		if pgErr.Code != "42601" { // Syntax error
+			t.Errorf("Expected syntax error with code 42601, got %s", pgErr.Code)
 			t.FailNow()
 		}
 		return
@@ -136,7 +136,6 @@ func setupDBConnection(ctx context.Context) (*pgx.Conn, error) {
 		return conn, fmt.Errorf("failed to create test table: %v", err)
 	}
 	return conn, nil
-
 }
 
 func TestMain(m *testing.M) {
