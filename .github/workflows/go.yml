@@ -11,11 +11,27 @@ jobs:
   build-and-test:
     name: Build and test
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: myusername
+          POSTGRES_PASSWORD: mypassword
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U myusername -d test_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     env:
       POSTGRES_USER: myusername
       POSTGRES_PASSWORD: mypassword
       POSTGRES_DB: test_db
-      POSTGRES_HOST: localhost
+      POSTGRES_HOST: 127.0.0.1
 
     steps:
       - name: Check out repository
@@ -27,24 +43,6 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Start PostgreSQL
-        run: docker compose up -d db
-
-      - name: Wait for PostgreSQL
-        run: |
-          for attempt in {1..30}; do
-            if docker compose exec -T db pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"; then
-              echo "PostgreSQL is ready"
-              exit 0
-            fi
-            echo "Waiting for PostgreSQL (attempt $attempt/30)..."
-            sleep 2
-          done
-
-          echo "PostgreSQL did not become ready in time"
-          docker compose logs --no-color db
-          exit 1
-
       - name: Build
         run: go build ./...
 
@@ -53,8 +51,4 @@ jobs:
 
       - name: Show PostgreSQL logs on failure
         if: ${{ failure() }}
-        run: docker compose logs --no-color db
-
-      - name: Stop PostgreSQL
-        if: always()
-        run: docker compose down -v
+        run: docker logs "${{ job.services.postgres.id }}"
